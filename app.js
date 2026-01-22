@@ -150,6 +150,13 @@ app.delete("/api/products/:id", async (req, res) => {
     res.json({ message: "Product deleted" });
 });
 
+app.get("/version", (req, res) => {
+    res.json({
+        version: "1.1",
+        updatedAt: "2026-01-18"
+    });
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: "API endpoint not found" });
 });
