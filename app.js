@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const { MongoClient, ObjectId } = require("mongodb");
 const app = express();
@@ -9,7 +11,8 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-const MONGO_URL = "mongodb://127.0.0.1:27017"; 
+const PORT = process.env.PORT || 3000;
+const MONGO_URL = process.env.MONGO_URI;
 const DB_NAME = "shop";
 
 let db;
@@ -26,13 +29,16 @@ MongoClient.connect(MONGO_URL)
     });
 
 app.get("/", (req, res) => {
-    res.send(`
-        <h1>Practice Task 9</h1>
-        <ul>
-            <li><a href="/api/products">/api/products</a></li>
-            <li><a href="/api/products/1">/api/products/1</a></li>
-        </ul>
-    `);
+    res.json({
+        message: "API is running",
+        endpoints: [
+            "GET /api/products",
+            "GET /api/products/:id",
+            "POST /api/products",
+            "PUT /api/products/:id",
+            "DELETE /api/products/:id"
+        ]
+    });
 });
 
 app.get("/api/products", async (req, res) => {
@@ -106,10 +112,48 @@ app.post("/api/products", async (req, res) => {
     });
 });
 
+app.put("/api/products/:id", async (req, res) => {
+    const { id } = req.params;
+    const { name, price, category } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid product id" });
+    }
+
+    const result = await productsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { name, price, category } }
+    );
+
+    if (result.matchedCount === 0) {
+        return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product updated" });
+});
+
+app.delete("/api/products/:id", async (req, res) => {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid product id" });
+    }
+
+    const result = await productsCollection.deleteOne({
+        _id: new ObjectId(id)
+    });
+
+    if (result.deletedCount === 0) {
+        return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product deleted" });
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: "API endpoint not found" });
 });
 
-app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
