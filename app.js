@@ -16,12 +16,12 @@ const MONGO_URL = process.env.MONGO_URI;
 const DB_NAME = "shop";
 
 let db;
-let productsCollection;
+let itemsCollection;
 
 MongoClient.connect(MONGO_URL)
     .then(client => {
         db = client.db(DB_NAME);
-        productsCollection = db.collection("products");
+        itemsCollection = db.collection("items");
         console.log("Connected to MongoDB");
     })
     .catch(err => {
@@ -32,16 +32,17 @@ app.get("/", (req, res) => {
     res.json({
         message: "API is running",
         endpoints: [
-            "GET /api/products",
-            "GET /api/products/:id",
-            "POST /api/products",
-            "PUT /api/products/:id",
-            "DELETE /api/products/:id"
+            "GET /api/items",
+            "GET /api/items/:id",
+            "POST /api/items",
+            "PUT /api/items/:id",
+            "PATCH /api/items/:id",
+            "DELETE /api/items/:id"
         ]
     });
 });
 
-app.get("/api/products", async (req, res) => {
+app.get("/api/items", async (req, res) => {
     const { category, minPrice, sort, fields } = req.query;
 
     const filter = {};
@@ -64,90 +65,118 @@ app.get("/api/products", async (req, res) => {
         sortOption.price = 1;
     }
 
-    const products = await productsCollection
+    const items = await itemsCollection
         .find(filter, { projection })
         .sort(sortOption)
         .toArray();
 
     res.json({
-        count: products.length,
-        products
+        count: items.length,
+        items
     });
 });
 
-app.get("/api/products/:id", async (req, res) => {
+app.get("/api/items/:id", async (req, res) => {
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: "Invalid product id" });
+        return res.status(400).json({ error: "Invalid item id" });
     }
 
-    const product = await productsCollection.findOne({ _id: new ObjectId(id) });
+    const item = await itemsCollection.findOne({ _id: new ObjectId(id) });
 
-    if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+    if (!item) {
+        return res.status(404).json({ error: "Item not found" });
     }
 
-    res.json(product);
+    res.json(item);
 });
 
-app.post("/api/products", async (req, res) => {
+app.post("/api/items", async (req, res) => {
     const { name, price, category } = req.body;
 
     if (!name || price === undefined || !category) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const newProduct = {
+    const newItem = {
         name,
         price,
         category
     };
 
-    const result = await productsCollection.insertOne(newProduct);
+    const result = await itemsCollection.insertOne(newItem);
 
     res.status(201).json({
-        message: "Product created",
+        message: "Item created",
         id: result.insertedId
     });
 });
 
-app.put("/api/products/:id", async (req, res) => {
+app.put("/api/items/:id", async (req, res) => {
     const { id } = req.params;
     const { name, price, category } = req.body;
 
     if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: "Invalid product id" });
+        return res.status(400).json({ error: "Invalid item id" });
     }
 
-    const result = await productsCollection.updateOne(
+    if (!name || price === undefined || !category) {
+    return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const result = await itemsCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: { name, price, category } }
     );
 
     if (result.matchedCount === 0) {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({ error: "Item not found" });
     }
 
-    res.json({ message: "Product updated" });
+    res.json({ message: "Item updated" });
 });
 
-app.delete("/api/products/:id", async (req, res) => {
+app.patch("/api/items/:id", async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid item id" });
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+    }
+
+    const result = await itemsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updates }
+    );
+
+    if (result.matchedCount === 0) {
+        return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.json({ message: "Item updated (partial)" });
+});
+
+app.delete("/api/items/:id", async (req, res) => {
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
-        return res.status(400).json({ error: "Invalid product id" });
+        return res.status(400).json({ error: "Invalid item id" });
     }
 
-    const result = await productsCollection.deleteOne({
+    const result = await itemsCollection.deleteOne({
         _id: new ObjectId(id)
     });
 
     if (result.deletedCount === 0) {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({ error: "Item not found" });
     }
 
-    res.json({ message: "Product deleted" });
+    res.status(204).send();
 });
 
 app.get("/version", (req, res) => {
